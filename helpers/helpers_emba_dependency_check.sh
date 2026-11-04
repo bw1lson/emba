@@ -486,6 +486,7 @@ dependency_check() {
   # Set needed paths and exports inside our container
   #######################################################################################
   if [[ "${USE_DOCKER}" -eq 0 ]]; then
+    check_dep_tool "OFRAK" "${EXT_DIR}/ofrak_venv/bin/ofrak"
     if command -v binwalk >/dev/null; then
       export BINWALK_BIN=("$(which binwalk)")
     else

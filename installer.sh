@@ -471,6 +471,8 @@ if [[ "${CVE_SEARCH}" -ne 1 ]] || [[ "${DOCKER_SETUP}" -ne 1 ]] || [[ "${IN_DOCK
 
   IP61_unblob
 
+  IP62_ofrak
+
   IP99_binwalk_default
 
   I02_UEFI_fwhunt
