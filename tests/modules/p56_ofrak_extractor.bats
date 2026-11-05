@@ -243,7 +243,7 @@ teardown() {
   [[ "${output}" == *"-m pip install --only-binary=:all: uv==0.11.14"* ]]
   grep -Fxq 'python install --no-bin 3.10.20' "${TMP_DIR}/uv_calls"
   grep -Fq 'python find --managed-python --no-python-downloads' "${TMP_DIR}/uv_calls"
-  grep -Fxq "pip install --python ${EXT_DIR}/ofrak_venv/bin/python3 --build-constraints ${EXT_DIR}/ofrak_uv/ofrak-build-constraints.txt setuptools==80.9.0 ofrak==3.2.0" "${TMP_DIR}/uv_calls"
+  grep -Fxq "pip install --python ${EXT_DIR}/ofrak_venv/bin/python3 --build-constraints ${EXT_DIR}/ofrak_uv/ofrak-build-constraints.txt setuptools==80.9.0 ofrak==3.2.0 GitPython" "${TMP_DIR}/uv_calls"
   grep -Fxq 'setuptools==80.9.0' "${EXT_DIR}/ofrak_uv/ofrak-build-constraints.txt"
   grep -Fxq "pip check --python ${EXT_DIR}/ofrak_venv/bin/python3" "${TMP_DIR}/uv_calls"
   [[ "${output}" == *"configure an appropriate license"* ]]

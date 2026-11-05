@@ -24,6 +24,7 @@ IP62_ofrak() {
     print_tool_info "file" 1
     print_pip_info "uv"
     print_pip_info "ofrak"
+    print_pip_info "GitPython"
     echo "[*] OFRAK 3.2.0 will use private CPython 3.10.20, provisioned with uv 0.11.14."
     echo "[*] Python downloads come from Astral's python-build-standalone releases with checksum verification."
     echo "[!] OFRAK Community licensing is restricted to eligible academic/non-commercial use."
@@ -75,7 +76,7 @@ IP62_ofrak() {
     fi
     printf 'setuptools==80.9.0\n' >"${lBUILD_CONSTRAINT}" || return "$?"
     "${lUV_ARR[@]}" pip install --python "${lOFRAK_VENV}/bin/python3" \
-      --build-constraints "${lBUILD_CONSTRAINT}" "setuptools==80.9.0" "ofrak==3.2.0" || return "$?"
+      --build-constraints "${lBUILD_CONSTRAINT}" "setuptools==80.9.0" "ofrak==3.2.0" "GitPython" || return "$?"
     "${lUV_ARR[@]}" pip check --python "${lOFRAK_VENV}/bin/python3" || return "$?"
     "${lOFRAK_BIN}" --help >/dev/null || return "$?"
 
