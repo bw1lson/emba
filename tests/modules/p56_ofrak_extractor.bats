@@ -190,7 +190,7 @@ teardown() {
   run IP62_ofrak
 
   [[ "${status}" -eq 0 ]]
-  [[ "${output}" == *"-m pip install ofrak==3.3.0"* ]]
+  [[ "${output}" == *"-m pip install ofrak==3.2.0"* ]]
   [[ "${output}" == *"configure an appropriate license"* ]]
   [[ "${output}" != *"license --community --i-agree"* ]]
   [[ -L "${EXT_DIR}/ofrak_venv/bin/python3" ]]

@@ -24,7 +24,7 @@ IP62_ofrak() {
     print_tool_info "build-essential" 1
     print_tool_info "file" 1
     print_pip_info "ofrak"
-    echo "[*] OFRAK 3.3.0 will be installed in its own virtual environment."
+    echo "[*] OFRAK 3.2.0 will be installed in its own virtual environment."
     echo "[!] OFRAK Community licensing is restricted to eligible academic/non-commercial use."
     echo "[*] Review https://ofrak.com/license/ before setting OFRAK_ACCEPT_COMMUNITY_LICENSE=1."
 
@@ -37,7 +37,7 @@ IP62_ofrak() {
 
     apt-get install "${INSTALL_APP_LIST[@]}" -y --no-install-recommends || return "$?"
     create_pipenv "${lOFRAK_VENV}" || return "$?"
-    "${lOFRAK_VENV}/bin/python3" -m pip install "ofrak==3.3.0" || return "$?"
+    "${lOFRAK_VENV}/bin/python3" -m pip install "ofrak==3.2.0" || return "$?"
     "${lOFRAK_BIN}" --help >/dev/null || return "$?"
 
     if [[ "${OFRAK_ACCEPT_COMMUNITY_LICENSE:-0}" == "1" ]]; then
