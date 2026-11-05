@@ -94,9 +94,9 @@ IP00_extractors() {
 
       if ! [[ -f "./external/buffalo-enc.elf" ]]; then
         # Buffalo decryptor:
-        download_file "buffalo-enc.c" "https://git-us.netdef.org/projects/OSR/repos/openwrt-buildroot/raw/tools/firmware-utils/src/buffalo-enc.c" "external/buffalo-enc.c"
-        download_file "buffalo-lib.c" "https://git-us.netdef.org/projects/OSR/repos/openwrt-buildroot/raw/tools/firmware-utils/src/buffalo-lib.c" "external/buffalo-lib.c"
-        download_file "buffalo-lib.h" "https://git-us.netdef.org/projects/OSR/repos/openwrt-buildroot/raw/tools/firmware-utils/src/buffalo-lib.h" "external/buffalo-lib.h"
+        download_file "buffalo-enc.c" "https://raw.githubusercontent.com/openwrt/firmware-utils/master/src/buffalo-enc.c" "external/buffalo-enc.c"
+        download_file "buffalo-lib.c" "https://raw.githubusercontent.com/openwrt/firmware-utils/master/src/buffalo-lib.c" "external/buffalo-lib.c"
+        download_file "buffalo-lib.h" "https://raw.githubusercontent.com/openwrt/firmware-utils/master/src/buffalo-lib.h" "external/buffalo-lib.h"
         cd ./external || (echo "Could not install EMBA component buffalo decryptor" && exit 1)
         sed -i 's/#include "buffalo-lib.h"/#include "buffalo-lib.h"\n#include "buffalo-lib.c"/g' buffalo-enc.c
         gcc -o buffalo-enc.elf buffalo-enc.c
