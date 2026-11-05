@@ -28,6 +28,8 @@ setup() {
   export UEFI_VERIFIED=0 DISABLE_DEEP=0
   export OFRAK_MISSING=0 OFRAK_RESULT=success OFRAK_BACKEND_STATUS=0
   export OFRAK_ACCEPT_COMMUNITY_LICENSE=0 OFRAK_APT_STATUS=0
+  export OFRAK_TEST_OS=Linux OFRAK_TEST_ARCH=x86_64
+  export OFRAK_DOWNLOAD_STATUS=0 OFRAK_INSTALL_STATUS=0 OFRAK_CHECK_STATUS=0
   export INSTALL_APP_LIST=()
   mkdir -p "${LOG_PATH_MODULE}"
   printf 'firmware' >"${FIRMWARE_PATH_BAK}"
@@ -89,8 +91,56 @@ setup() {
   }
   create_pipenv() {
     mkdir -p "$1/bin"
-    ln -s /bin/echo "$1/bin/python3"
-    ln -s /bin/echo "$1/bin/ofrak"
+    if [[ ! -e "$1/bin/python3" ]]; then
+      ln -s /bin/echo "$1/bin/python3"
+      ln -s /bin/echo "$1/bin/uv"
+    fi
+  }
+  uname() {
+    case "${1:-}" in
+    -s) printf '%s\n' "${OFRAK_TEST_OS}" ;;
+    -m) printf '%s\n' "${OFRAK_TEST_ARCH}" ;;
+    *) builtin command uname "$@" ;;
+    esac
+  }
+  env() {
+    if [[ "${1:-}" == "UV_PYTHON_INSTALL_DIR=${EXT_DIR}/ofrak_python" ]]; then
+      [[ "$2" == "${EXT_DIR}/ofrak_uv/bin/uv" && "$3" == "--no-config" && "$4" == "--no-cache" ]] || return 1
+      shift 4
+      printf '%s\n' "$*" >>"${TMP_DIR}/uv_calls"
+      case "$1 $2" in
+      "python install")
+        [[ "$3" == "--no-bin" && "$4" == "3.10.20" ]] || return 1
+        if [[ "${OFRAK_DOWNLOAD_STATUS}" -ne 0 ]]; then
+          return "${OFRAK_DOWNLOAD_STATUS}"
+        fi
+        mkdir -p "${EXT_DIR}/ofrak_python/cpython-3.10.20/bin"
+        if [[ ! -e "${EXT_DIR}/ofrak_python/cpython-3.10.20/bin/python3.10" ]]; then
+          ln -s /bin/echo "${EXT_DIR}/ofrak_python/cpython-3.10.20/bin/python3.10"
+        fi
+        ;;
+      "python find")
+        printf '%s\n' "${EXT_DIR}/ofrak_python/cpython-3.10.20/bin/python3.10"
+        ;;
+      "pip install")
+        return "${OFRAK_INSTALL_STATUS}"
+        ;;
+      "pip check")
+        return "${OFRAK_CHECK_STATUS}"
+        ;;
+      *) return 1 ;;
+      esac
+    elif [[ "${1:-}" == "-u" ]]; then
+      [[ "$2" == "PYTHONHOME" && "$3" == "-u" && "$4" == "PYTHONPATH" ]] || return 1
+      [[ "$5" == "${EXT_DIR}/ofrak_python/cpython-3.10.20/bin/python3.10" ]] || return 1
+      [[ "$6" == "-m" && "$7" == "venv" && "$8" == "${EXT_DIR}/ofrak_venv" ]] || return 1
+      mkdir -p "$8/bin"
+      ln -s /bin/echo "$8/bin/python3"
+      ln -s /bin/echo "$8/bin/ofrak"
+      printf 'home = %s\nversion = 3.10.20\n' "${5%/*}" >"$8/pyvenv.cfg"
+    else
+      builtin command env "$@"
+    fi
   }
 }
 
@@ -186,11 +236,16 @@ teardown() {
   grep -q 'retaining existing artifacts' "${LOG_FILE}"
 }
 
-@test "OFRAK installer pins an isolated installation without accepting a license by default" {
+@test "OFRAK installer uses private Python and constrains isolated builds without accepting a license by default" {
   run IP62_ofrak
 
   [[ "${status}" -eq 0 ]]
-  [[ "${output}" == *"-m pip install ofrak==3.2.0"* ]]
+  [[ "${output}" == *"-m pip install --only-binary=:all: uv==0.11.14"* ]]
+  grep -Fxq 'python install --no-bin 3.10.20' "${TMP_DIR}/uv_calls"
+  grep -Fq 'python find --managed-python --no-python-downloads' "${TMP_DIR}/uv_calls"
+  grep -Fxq "pip install --python ${EXT_DIR}/ofrak_venv/bin/python3 --build-constraints ${EXT_DIR}/ofrak_uv/ofrak-build-constraints.txt setuptools==80.9.0 ofrak==3.2.0" "${TMP_DIR}/uv_calls"
+  grep -Fxq 'setuptools==80.9.0' "${EXT_DIR}/ofrak_uv/ofrak-build-constraints.txt"
+  grep -Fxq "pip check --python ${EXT_DIR}/ofrak_venv/bin/python3" "${TMP_DIR}/uv_calls"
   [[ "${output}" == *"configure an appropriate license"* ]]
   [[ "${output}" != *"license --community --i-agree"* ]]
   [[ -L "${EXT_DIR}/ofrak_venv/bin/python3" ]]
@@ -209,6 +264,7 @@ teardown() {
   export LIST_DEP=1 OFRAK_ACCEPT_COMMUNITY_LICENSE=1
   IP62_ofrak
   [[ ! -e "${EXT_DIR}/ofrak_venv" ]]
+  [[ ! -e "${EXT_DIR}/ofrak_uv" ]]
   [[ ! -f "${TMP_DIR}/apt_arguments" ]]
 
   export LIST_DEP=0 IN_DOCKER=0 DOCKER_SETUP=1
@@ -223,5 +279,82 @@ teardown() {
 
   [[ "${status}" -eq 19 ]]
   [[ ! -e "${EXT_DIR}/ofrak_venv" ]]
+  [[ "${output}" != *"Community License accepted"* ]]
+}
+
+@test "OFRAK installer retains a Python 3.14 environment and leaves other EMBA tools untouched" {
+  mkdir -p "${EXT_DIR}/ofrak_venv" "${EXT_DIR}/emba_venv"
+  printf 'version = 3.14.0\n' >"${EXT_DIR}/ofrak_venv/pyvenv.cfg"
+  printf 'previous installation' >"${EXT_DIR}/ofrak_venv/previous"
+  printf 'existing tools' >"${EXT_DIR}/emba_venv/keep"
+  export HOME_PATH="${LOG_DIR}/"
+
+  run IP62_ofrak
+
+  [[ "${status}" -eq 0 ]]
+  local lBACKUP_ARR=("${EXT_DIR}"/ofrak_venv.backup.*)
+  [[ "${#lBACKUP_ARR[@]}" -eq 1 ]]
+  [[ "$(<"${lBACKUP_ARR[0]}/ofrak_venv/previous")" == "previous installation" ]]
+  [[ "$(<"${EXT_DIR}/emba_venv/keep")" == "existing tools" ]]
+  grep -Fxq 'version = 3.10.20' "${EXT_DIR}/ofrak_venv/pyvenv.cfg"
+  [[ "${output}" == *"Previous OFRAK environment retained"* ]]
+}
+
+@test "OFRAK installer reuses a compatible environment without discarding its license" {
+  IP62_ofrak
+  printf 'retained license' >"${EXT_DIR}/ofrak_venv/license-sentinel"
+
+  run IP62_ofrak
+
+  [[ "${status}" -eq 0 ]]
+  [[ "$(<"${EXT_DIR}/ofrak_venv/license-sentinel")" == "retained license" ]]
+  [[ "${output}" != *"Previous OFRAK environment retained"* ]]
+}
+
+@test "OFRAK installer rejects unsupported platforms before installing dependencies" {
+  local lSETTING=""
+  for lSETTING in os arch; do
+    export OFRAK_TEST_OS=Linux OFRAK_TEST_ARCH=x86_64
+    if [[ "${lSETTING}" == "os" ]]; then
+      export OFRAK_TEST_OS=Darwin
+    else
+      export OFRAK_TEST_ARCH=aarch64
+    fi
+    run IP62_ofrak
+    [[ "${status}" -eq 1 ]]
+    [[ "${output}" == *"requires x86_64 Linux"* ]]
+    [[ ! -f "${TMP_DIR}/apt_arguments" ]]
+  done
+}
+
+@test "OFRAK runtime download failure preserves the existing environment" {
+  mkdir -p "${EXT_DIR}/ofrak_venv"
+  printf 'old installation' >"${EXT_DIR}/ofrak_venv/previous"
+  export OFRAK_DOWNLOAD_STATUS=31
+
+  run IP62_ofrak
+
+  [[ "${status}" -eq 31 ]]
+  [[ "$(<"${EXT_DIR}/ofrak_venv/previous")" == "old installation" ]]
+  [[ ! -f "${EXT_DIR}/ofrak_uv/ofrak-build-constraints.txt" ]]
+  [[ "${output}" != *"Community License accepted"* ]]
+}
+
+@test "OFRAK package installation failure is propagated before license acceptance" {
+  export OFRAK_INSTALL_STATUS=29 OFRAK_ACCEPT_COMMUNITY_LICENSE=1
+
+  run IP62_ofrak
+
+  [[ "${status}" -eq 29 ]]
+  [[ "${output}" != *"license --community --i-agree"* ]]
+}
+
+@test "OFRAK dependency conflicts prevent successful installation reporting" {
+  export OFRAK_CHECK_STATUS=33 OFRAK_ACCEPT_COMMUNITY_LICENSE=1
+
+  run IP62_ofrak
+
+  [[ "${status}" -eq 33 ]]
+  [[ "${output}" != *"license --community --i-agree"* ]]
   [[ "${output}" != *"Community License accepted"* ]]
 }
